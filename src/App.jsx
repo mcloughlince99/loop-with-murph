@@ -297,6 +297,14 @@ export default function CaddieBrain() {
   const [voiceOut, setVoiceOut] = useState(() => {
     try { return localStorage.getItem(VOICE_OUT_KEY) === "true"; } catch { return false; }
   });
+  const [irishBannerDismissed, setIrishBannerDismissed] = useState(() => {
+    try { return localStorage.getItem("caddie_irish_banner") === "true"; } catch { return false; }
+  });
+
+  function dismissIrishBanner() {
+    setIrishBannerDismissed(true);
+    try { localStorage.setItem("caddie_irish_banner", "true"); } catch {}
+  }
 
   const golferKey = golfer === "Colleen" ? "colleen" : golfer === "Dave" ? "dave" : "colleen";
 
@@ -342,14 +350,17 @@ export default function CaddieBrain() {
     if (!window.speechSynthesis) return;
     window.speechSynthesis.cancel();
     const utt = new SpeechSynthesisUtterance(text);
-    utt.rate = 0.88;
-    utt.pitch = 0.85;
+    utt.rate = 1.15;
+    utt.pitch = 0.9;
     utt.volume = 1;
-    // Prefer a male voice if available
     const voices = window.speechSynthesis.getVoices();
-    const preferred = voices.find(v =>
-      /aaron|daniel|fred|tom|albert|bruce|junior|ralph|arthur|lee|gordon|o'brien|oliver|serena/i.test(v.name)
-    ) || voices.find(v => v.lang === "en-US" && !v.name.toLowerCase().includes("female")) || null;
+    // Priority: Irish voice → en-IE → any male English
+    const preferred =
+      voices.find(v => /moira|aaron|daniel.*irish|irish/i.test(v.name)) ||
+      voices.find(v => v.lang === "en-IE") ||
+      voices.find(v => /^en/.test(v.lang) && /daniel|gordon|arthur|lee|oliver|fred|bruce/i.test(v.name)) ||
+      voices.find(v => v.lang === "en-GB") ||
+      null;
     if (preferred) utt.voice = preferred;
     window.speechSynthesis.speak(utt);
   }
@@ -432,6 +443,39 @@ export default function CaddieBrain() {
           ))}
         </div>
       </div>
+
+      {/* Irish Voice Banner — shows once, only when voice is on or not yet dismissed */}
+      {!irishBannerDismissed && (
+        <div style={{
+          background: "rgba(200,168,75,0.08)", borderBottom: "1px solid #3a3010",
+          padding: "10px 24px", display: "flex", alignItems: "center", gap: "12px",
+          position: "relative", zIndex: 1, flexWrap: "wrap"
+        }}>
+          <span style={{ fontSize: "16px" }}>🍀</span>
+          <span style={{ fontSize: "13px", color: "#c8a84b", flex: 1 }}>
+            <strong>Get Murph's real Irish accent</strong> — install the Irish voice on your device.
+          </span>
+          <a
+            href="https://support.apple.com/en-us/111900"
+            target="_blank"
+            rel="noreferrer"
+            style={{
+              fontSize: "12px", color: "#0d1a0f", background: "#c8a84b",
+              padding: "5px 14px", borderRadius: "4px", textDecoration: "none",
+              fontFamily: "Georgia, serif", whiteSpace: "nowrap", fontWeight: "bold"
+            }}
+          >
+            iPhone instructions ↗
+          </a>
+          <span style={{ fontSize: "11px", color: "#7a9a7a", maxWidth: "260px", lineHeight: 1.5 }}>
+            Settings → Accessibility → Spoken Content → Voices → English → Irish (Ireland) → Download
+          </span>
+          <button onClick={dismissIrishBanner} style={{
+            background: "transparent", border: "none", color: "#4a6a4a",
+            cursor: "pointer", fontSize: "18px", lineHeight: 1, padding: "0 4px"
+          }}>×</button>
+        </div>
+      )}
 
       <div style={{ maxWidth: "880px", margin: "0 auto", padding: "36px 24px", position: "relative", zIndex: 1 }}>
 
