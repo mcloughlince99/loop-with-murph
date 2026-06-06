@@ -2,6 +2,7 @@ import { useState } from "react";
 
 const BAG_STORAGE_KEY = "caddie_bag";
 const RIVALRY_KEY = "caddie_rivalry";
+const VOICE_OUT_KEY = "caddie_voice_out";
 
 const DEFAULT_BAG = {
   colleen: [
@@ -293,6 +294,9 @@ export default function CaddieBrain() {
   const [bagSaved, setBagSaved] = useState(false);
   const [listening, setListening] = useState(false);
   const [voiceStatus, setVoiceStatus] = useState("");
+  const [voiceOut, setVoiceOut] = useState(() => {
+    try { return localStorage.getItem(VOICE_OUT_KEY) === "true"; } catch { return false; }
+  });
 
   const golferKey = golfer === "Colleen" ? "colleen" : golfer === "Dave" ? "dave" : "colleen";
 
@@ -327,10 +331,34 @@ export default function CaddieBrain() {
     rec.onend = () => setListening(false);
   }
 
+  function toggleVoiceOut() {
+    const next = !voiceOut;
+    setVoiceOut(next);
+    try { localStorage.setItem(VOICE_OUT_KEY, String(next)); } catch {}
+    if (!next) window.speechSynthesis?.cancel();
+  }
+
+  function murphSpeak(text) {
+    if (!window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    const utt = new SpeechSynthesisUtterance(text);
+    utt.rate = 0.88;
+    utt.pitch = 0.85;
+    utt.volume = 1;
+    // Prefer a male voice if available
+    const voices = window.speechSynthesis.getVoices();
+    const preferred = voices.find(v =>
+      /aaron|daniel|fred|tom|albert|bruce|junior|ralph|arthur|lee|gordon|o'brien|oliver|serena/i.test(v.name)
+    ) || voices.find(v => v.lang === "en-US" && !v.name.toLowerCase().includes("female")) || null;
+    if (preferred) utt.voice = preferred;
+    window.speechSynthesis.speak(utt);
+  }
+
   function getAdvice() {
     if (!distance) return;
     const r = murphRead({ golfer, distance, lie, wind, pinPosition, tendency, preferredShape, bag, golferKey });
     setResult(r);
+    if (voiceOut) murphSpeak(r.read);
   }
 
   function logScore() {
@@ -483,10 +511,29 @@ export default function CaddieBrain() {
                 fontSize: "22px", lineHeight: 1, transition: "all 0.2s",
                 animation: listening ? "pulse 1s ease-in-out infinite" : "none"
               }}>{listening ? "🎙️" : "🎤"}</button>
+              <button
+                onClick={toggleVoiceOut}
+                title={voiceOut ? "Murph reads aloud — click to mute" : "Click to have Murph read aloud"}
+                style={{
+                  padding: "15px 18px", border: "1px solid",
+                  borderColor: voiceOut ? "#c8a84b" : "#2d4a2d",
+                  background: voiceOut ? "rgba(200,168,75,0.15)" : "rgba(0,0,0,0.3)",
+                  borderRadius: "6px", cursor: "pointer",
+                  fontSize: "22px", lineHeight: 1, transition: "all 0.2s",
+                  position: "relative"
+                }}
+              >
+                {voiceOut ? "🔊" : "🔇"}
+              </button>
             </div>
             {voiceStatus && (
               <div style={{ marginTop: "8px", fontSize: "12px", color: listening ? "#c8a84b" : "#7a9a7a", letterSpacing: "0.04em", textAlign: "center" }}>
                 {voiceStatus}
+              </div>
+            )}
+            {!voiceStatus && (
+              <div style={{ marginTop: "8px", fontSize: "11px", color: "#4a6a4a", letterSpacing: "0.04em", textAlign: "right" }}>
+                {voiceOut ? "🔊 Murph will read it aloud" : "🔇 Voice off"}
               </div>
             )}
             <style>{`@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }`}</style>
@@ -504,6 +551,14 @@ export default function CaddieBrain() {
                 <div style={{ padding: "24px 28px", background: "rgba(0,0,0,0.4)", border: "1px solid #2d4a2d", borderLeft: "4px solid #c8a84b", borderRadius: "6px", position: "relative" }}>
                   <div style={{ position: "absolute", top: "-11px", left: "20px", background: "#0d1a0f", padding: "0 10px", fontSize: "10px", color: "#c8a84b", letterSpacing: "0.15em", textTransform: "uppercase" }}>Murph's Read</div>
                   <div style={{ fontSize: "16px", lineHeight: "1.8", fontStyle: "italic" }}>"{result.read}"</div>
+                  {voiceOut && (
+                    <button onClick={() => murphSpeak(result.read)} style={{
+                      marginTop: "14px", padding: "6px 16px",
+                      background: "transparent", border: "1px solid #2d4a2d",
+                      borderRadius: "4px", color: "#7a9a7a", cursor: "pointer",
+                      fontSize: "12px", fontFamily: "Georgia, serif", letterSpacing: "0.06em"
+                    }}>▶ Replay</button>
+                  )}
                 </div>
               </div>
             )}
